@@ -486,11 +486,8 @@
         function setupRealtimeSubscription() {
             // Remove existing channel if any
             if (realtimeChannel) {
-                console.log('⚠️ Removing existing realtime channel');
                 supabaseClient.removeChannel(realtimeChannel);
             }
-
-            console.log('🔌 Setting up NEW realtime subscription for session:', sessionId);
 
             // Create new channel
             realtimeChannel = supabaseClient
@@ -504,10 +501,7 @@
                         filter: `session_id=eq.${sessionId}`
                     },
                     (payload) => {
-                        console.log('🔔 REALTIME UPDATE RECEIVED at', new Date().toISOString());
-                        console.log('Event type:', payload.eventType);
-                        console.log('Payload:', payload);
-                        
+                        console.log('Realtime update received:', payload);
                         if (payload.new && payload.new.message_history) {
                             let messages = payload.new.message_history;
                             
@@ -516,14 +510,13 @@
                                 messages = JSON.parse(messages);
                             }
                             
-                            console.log('📨 Rendering', messages.length, 'messages from realtime update');
                             renderMessages(messages);
                             checkForUnreadMessages(messages);
                         }
                     }
                 )
                 .subscribe((status) => {
-                    console.log('📡 Realtime subscription status:', status);
+                    console.log('Realtime subscription status:', status);
                 });
         }
 
@@ -553,13 +546,9 @@
 
         // Render Messages
         function renderMessages(messages) {
-            console.log('🎨 RENDER MESSAGES CALLED at', new Date().toISOString());
-            console.log('Type:', typeof messages);
+            console.log('renderMessages called with:', typeof messages, messages);
             console.log('Is array?', Array.isArray(messages));
             console.log('Length:', messages ? messages.length : 'N/A');
-            
-            // Get stack trace to see who called renderMessages
-            console.trace('renderMessages call stack');
             
             messagesContainer.innerHTML = '';
             
@@ -741,8 +730,10 @@
                 // Clear input
                 inputField.value = '';
                 
-                // Don't manually reload - let realtime subscription handle it
-                // This prevents flickering from double-reload
+                // Small delay before reloading to ensure message is saved
+                setTimeout(async () => {
+                    await loadMessages();
+                }, 300);
             } catch (err) {
                 console.error('Error sending message:', err);
                 alert('Fehler beim Senden der Nachricht. Bitte versuchen Sie es erneut.');
