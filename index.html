@@ -552,20 +552,30 @@
             
             messagesContainer.innerHTML = '';
             
+            // Always show welcome message first
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'message bot';
+            
+            const welcomeLabelDiv = document.createElement('div');
+            welcomeLabelDiv.className = 'message-label';
+            welcomeLabelDiv.textContent = 'Flowcar';
+            
+            const welcomeBubbleDiv = document.createElement('div');
+            welcomeBubbleDiv.className = 'message-bubble';
+            welcomeBubbleDiv.textContent = 'Willkommen bei Flowcar! Gerne beantworten wir all deine Fragen.';
+            
+            welcomeDiv.appendChild(welcomeLabelDiv);
+            welcomeDiv.appendChild(welcomeBubbleDiv);
+            messagesContainer.appendChild(welcomeDiv);
+            
             if (!Array.isArray(messages) || messages.length === 0) {
                 console.log('No messages to render - Array check failed or length is 0');
-                // Add empty class to show placeholder text
-                messagesContainer.classList.add('empty');
                 // If waiting for response, show typing indicator
                 if (isWaitingForResponse) {
-                    messagesContainer.classList.remove('empty');
                     showTypingIndicator();
                 }
                 return;
             }
-
-            // Remove empty class when there are messages
-            messagesContainer.classList.remove('empty');
 
             messages.forEach(msg => {
                 const messageDiv = document.createElement('div');
