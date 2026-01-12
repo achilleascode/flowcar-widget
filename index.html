@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crescore Assistenz - Chatbot Widget</title>
+    <title>Flowcar Widget - Chatbot</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
@@ -27,10 +27,10 @@
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            background: linear-gradient(135deg, #e63946, #d62828);
             border: none;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+            box-shadow: 0 4px 12px rgba(230, 57, 70, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -64,7 +64,7 @@
 
         #chat-widget-button:hover {
             transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(46, 204, 113, 0.6);
+            box-shadow: 0 6px 16px rgba(230, 57, 70, 0.6);
         }
 
         #chat-widget-button svg {
@@ -108,7 +108,7 @@
 
         /* Header */
         #chat-header {
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            background: linear-gradient(135deg, #e63946, #d62828);
             color: white;
             padding: 20px;
             display: flex;
@@ -175,7 +175,7 @@
         }
 
         #chat-messages::-webkit-scrollbar-thumb {
-            background: #27ae60;
+            background: #e63946;
             border-radius: 3px;
         }
 
@@ -216,7 +216,7 @@
         }
 
         .message.user .message-bubble {
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            background: linear-gradient(135deg, #e63946, #d62828);
             color: white;
             border-bottom-right-radius: 4px;
         }
@@ -246,7 +246,7 @@
 
         .message.user .message-label {
             text-align: right;
-            color: #27ae60;
+            color: #e63946;
         }
 
         .message.bot .message-label {
@@ -296,14 +296,14 @@
         }
 
         #chat-input:focus {
-            border-color: #2ecc71;
+            border-color: #e63946;
         }
 
         #chat-send-button {
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            background: linear-gradient(135deg, #e63946, #d62828);
             border: none;
             cursor: pointer;
             display: flex;
@@ -373,7 +373,7 @@
     <!-- Chat Widget Window -->
     <div id="chat-widget-window">
         <div id="chat-header">
-            <h3>Crescore Assistenz</h3>
+            <h3>Flowcar Support</h3>
             <button id="chat-close-button" aria-label="Chat schließen">&times;</button>
         </div>
         <div id="chat-messages"></div>
@@ -397,7 +397,7 @@
         const SUPABASE_URL = 'https://zmbyuttcrryflthbeypa.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptYnl1dHRjcnJ5Zmx0aGJleXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMjkwNjksImV4cCI6MjA3ODcwNTA2OX0.SpaXrosRhGpzbW-PpnNw6HFmMThEiUaiC43eLQBJSa0';
         const API_ENDPOINT = 'https://api.telefonagent.com/webhook/caf4a487-9a63-4925-9eb3-1a1f86f58add';
-        const CHATBOT_NAME = 'Crescore';
+        const CHATBOT_NAME = 'Flowcar';
 
         // Initialize Supabase Client
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -420,10 +420,10 @@
         // Initialize Widget
         async function initWidget() {
             // Get or create session ID
-            sessionId = localStorage.getItem('crescore_session_id');
+            sessionId = localStorage.getItem('flowcar_session_id');
             if (!sessionId) {
                 sessionId = crypto.randomUUID();
-                localStorage.setItem('crescore_session_id', sessionId);
+                localStorage.setItem('flowcar_session_id', sessionId);
                 console.log('New session created:', sessionId);
             } else {
                 console.log('Existing session loaded:', sessionId);
@@ -491,7 +491,7 @@
 
             // Create new channel
             realtimeChannel = supabaseClient
-                .channel('crescore_chat_channel')
+                .channel('flowcar_chat_channel')
                 .on(
                     'postgres_changes',
                     {
@@ -540,7 +540,7 @@
             return escapedText.replace(urlRegex, (url) => {
                 // Remove trailing punctuation that's not part of the URL
                 let cleanUrl = url.replace(/[.,;:!?)\]]+$/, '');
-                return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" style="color: #2ecc71; text-decoration: underline; word-break: break-all;">${cleanUrl}</a>`;
+                return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" style="color: #e63946; text-decoration: underline; word-break: break-all;">${cleanUrl}</a>`;
             });
         }
 
@@ -634,7 +634,7 @@
 
             const bubbleDiv = document.createElement('div');
             bubbleDiv.className = 'message-bubble';
-            bubbleDiv.innerHTML = '<div class="typing-clock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#27ae60"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></div>';
+            bubbleDiv.innerHTML = '<div class="typing-clock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#e63946"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></div>';
 
             typingDiv.appendChild(bubbleDiv);
             messagesContainer.appendChild(typingDiv);
@@ -707,7 +707,7 @@
                     sessionid: sessionId,
                     timestamp: Math.floor(Date.now() / 1000),
                     message: message,
-                    chatbot_name: "Crescore",
+                    chatbot_name: "Flowcar",
                     type: "user"
                 };
 
