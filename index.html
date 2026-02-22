@@ -12,16 +12,20 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            overflow: visible;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: transparent;
-            padding: 0;
-            pointer-events: none;
         }
 
         /* Chat Widget Button */
         #chat-widget-button {
-            position: fixed;
+            position: absolute;
             bottom: 20px;
             right: 20px;
             width: 60px;
@@ -36,7 +40,6 @@
             justify-content: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             z-index: 1000;
-            pointer-events: auto;
         }
 
         /* Notification Badge */
@@ -75,8 +78,8 @@
 
         /* Chat Window */
         #chat-widget-window {
-            position: fixed;
-            bottom: 90px;
+            position: absolute;
+            bottom: 100px;
             right: 20px;
             width: 420px;
             height: 550px;
@@ -88,7 +91,6 @@
             overflow: hidden;
             z-index: 1001;
             animation: slideUp 0.3s ease;
-            pointer-events: auto;
         }
 
         #chat-widget-window.open {
@@ -154,7 +156,7 @@
         }
 
         #chat-messages.empty::before {
-            content: 'Schreiben Sie uns eine Nachricht\APlease send us a message';
+            content: 'Willkommen!\AWie kann ich Ihnen helfen?';
             white-space: pre-line;
             position: absolute;
             top: 50%;
@@ -355,7 +357,7 @@
             #chat-widget-window {
                 width: calc(100vw - 40px);
                 height: calc(100vh - 120px);
-                bottom: 90px;
+                bottom: 100px;
                 right: 20px;
             }
         }
@@ -378,10 +380,10 @@
         </div>
         <div id="chat-messages"></div>
         <div id="chat-input-area">
-            <input 
-                type="text" 
-                id="chat-input" 
-                placeholder="Nachricht eingeben..." 
+            <input
+                type="text"
+                id="chat-input"
+                placeholder="Nachricht eingeben..."
                 autocomplete="off"
             />
             <button id="chat-send-button" aria-label="Nachricht senden">
@@ -416,6 +418,13 @@
         let lastReadMessageIndex = -1;
         let isWaitingForResponse = false;
         const notificationBadge = document.getElementById('notification-badge');
+        let idleGreetingTimer = null;
+
+        // Load greeting state from sessionStorage
+        let idleGreetingShown = sessionStorage.getItem('flowcar_greeting_shown') === 'true';
+        let greetingTimestamp = sessionStorage.getItem('flowcar_greeting_timestamp')
+            ? parseInt(sessionStorage.getItem('flowcar_greeting_timestamp'))
+            : null;
 
         // Initialize Widget
         async function initWidget() {
@@ -425,6 +434,11 @@
                 sessionId = crypto.randomUUID();
                 localStorage.setItem('flowcar_session_id', sessionId);
                 console.log('New session created:', sessionId);
+                // Clear greeting state for new session
+                sessionStorage.removeItem('flowcar_greeting_shown');
+                sessionStorage.removeItem('flowcar_greeting_timestamp');
+                idleGreetingShown = false;
+                greetingTimestamp = null;
             } else {
                 console.log('Existing session loaded:', sessionId);
             }
@@ -440,7 +454,7 @@
         async function loadMessages() {
             try {
                 console.log('Loading messages for session:', sessionId);
-                
+
                 const { data, error } = await supabaseClient
                     .from('chatbot_conversations')
                     .select('message_history')
@@ -454,31 +468,49 @@
                         console.error('Error loading messages:', error);
                     }
                     renderMessages([]);
+                    // Show greeting immediately if no conversation exists
+                    if (!idleGreetingShown && widgetWindow.classList.contains('open')) {
+                        showIdleGreeting();
+                    }
                     return;
                 }
 
                 if (data && data.message_history) {
                     let messages = data.message_history;
-                    
+
                     // Handle if message_history is a string (shouldn't happen with jsonb, but just in case)
                     if (typeof messages === 'string') {
                         console.log('message_history is a string, parsing...');
                         messages = JSON.parse(messages);
                     }
-                    
+
                     console.log('Messages loaded:', messages.length);
                     console.log('Type of message_history:', typeof messages);
                     console.log('Is array?', Array.isArray(messages));
                     console.log('First few messages:', messages.slice(0, 3));
-                    
+
                     renderMessages(messages);
+
+                    // If there are existing messages, start the 20-second timer
+                    // (greeting will show once if user doesn't type)
+                    if (Array.isArray(messages) && messages.length > 0) {
+                        startIdleGreetingTimer();
+                    }
                 } else {
                     console.log('No message_history in response');
                     renderMessages([]);
+                    // Show greeting immediately if no messages
+                    if (!idleGreetingShown && widgetWindow.classList.contains('open')) {
+                        showIdleGreeting();
+                    }
                 }
             } catch (err) {
                 console.error('Exception loading messages:', err);
                 renderMessages([]);
+                // Show greeting immediately on error
+                if (!idleGreetingShown && widgetWindow.classList.contains('open')) {
+                    showIdleGreeting();
+                }
             }
         }
 
@@ -504,12 +536,12 @@
                         console.log('Realtime update received:', payload);
                         if (payload.new && payload.new.message_history) {
                             let messages = payload.new.message_history;
-                            
+
                             // Handle if message_history is a string
                             if (typeof messages === 'string') {
                                 messages = JSON.parse(messages);
                             }
-                            
+
                             renderMessages(messages);
                             checkForUnreadMessages(messages);
                         }
@@ -523,20 +555,20 @@
         // Convert URLs to clickable links
         function linkifyText(text) {
             if (!text) return '';
-            
+
             // Escape HTML first to prevent XSS
             const escapeHtml = (str) => {
                 const div = document.createElement('div');
                 div.textContent = str;
                 return div.innerHTML;
             };
-            
+
             const escapedText = escapeHtml(text);
-            
+
             // Regex to match URLs starting with http:// or https://
             // Matches until whitespace, newline, or end of string
             const urlRegex = /(https?:\/\/[^\s<>"]+)/gi;
-            
+
             return escapedText.replace(urlRegex, (url) => {
                 // Remove trailing punctuation that's not part of the URL
                 let cleanUrl = url.replace(/[.,;:!?)\]]+$/, '');
@@ -549,32 +581,35 @@
             console.log('renderMessages called with:', typeof messages, messages);
             console.log('Is array?', Array.isArray(messages));
             console.log('Length:', messages ? messages.length : 'N/A');
-            
-            messagesContainer.innerHTML = '';
-            
-            // Always show welcome message first
-            const welcomeDiv = document.createElement('div');
-            welcomeDiv.className = 'message bot';
-            
-            const welcomeLabelDiv = document.createElement('div');
-            welcomeLabelDiv.className = 'message-label';
-            welcomeLabelDiv.textContent = 'Flowcar';
-            
-            const welcomeBubbleDiv = document.createElement('div');
-            welcomeBubbleDiv.className = 'message-bubble';
-            welcomeBubbleDiv.textContent = 'Willkommen bei Flowcar! Gerne beantworten wir all deine Fragen.';
-            
-            welcomeDiv.appendChild(welcomeLabelDiv);
-            welcomeDiv.appendChild(welcomeBubbleDiv);
-            messagesContainer.appendChild(welcomeDiv);
-            
+
             if (!Array.isArray(messages) || messages.length === 0) {
                 console.log('No messages to render - Array check failed or length is 0');
+                messagesContainer.innerHTML = '';
+
+                // Re-add greeting if it was shown
+                if (idleGreetingShown && greetingTimestamp) {
+                    messagesContainer.classList.remove('empty');
+                    appendGreetingMessage();
+                } else {
+                    // Add empty class to show placeholder text
+                    messagesContainer.classList.add('empty');
+                }
                 // If waiting for response, show typing indicator
                 if (isWaitingForResponse) {
+                    messagesContainer.classList.remove('empty');
                     showTypingIndicator();
                 }
                 return;
+            }
+
+            messagesContainer.innerHTML = '';
+
+            // Remove empty class when there are messages
+            messagesContainer.classList.remove('empty');
+
+            // Add greeting message first if it was shown
+            if (idleGreetingShown && greetingTimestamp) {
+                appendGreetingMessage();
             }
 
             messages.forEach(msg => {
@@ -585,11 +620,12 @@
                 // Add label
                 const labelDiv = document.createElement('div');
                 labelDiv.className = 'message-label';
-                labelDiv.textContent = messageType.charAt(0).toUpperCase() + messageType.slice(1);
+                // Show "Flowcar" for bot messages, otherwise capitalize the type
+                labelDiv.textContent = messageType === 'bot' ? 'Flowcar' : messageType.charAt(0).toUpperCase() + messageType.slice(1);
 
                 const bubbleDiv = document.createElement('div');
                 bubbleDiv.className = 'message-bubble';
-                
+
                 // Convert URLs to links for bot and human messages
                 if (messageType === 'bot' || messageType === 'human') {
                     bubbleDiv.innerHTML = linkifyText(msg.message || '');
@@ -622,7 +658,7 @@
 
             // Scroll to bottom
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
+
             // Check for unread messages
             checkForUnreadMessages(messages);
         }
@@ -630,7 +666,7 @@
         // Show Typing Indicator
         function showTypingIndicator() {
             console.log('showTypingIndicator called');
-            
+
             // Remove existing typing indicator if any
             const existingIndicator = document.getElementById('typing-indicator');
             if (existingIndicator) {
@@ -664,7 +700,7 @@
 
             // Get last message
             const lastMessage = messages[messages.length - 1];
-            
+
             // If chat is closed and last message is from bot or human, show badge
             if (!widgetWindow.classList.contains('open') &&
                 (lastMessage.type === 'bot' || lastMessage.type === 'human')) {
@@ -677,11 +713,11 @@
         // Format Timestamp
         function formatTimestamp(timestamp) {
             if (!timestamp) return '';
-            
+
             try {
                 // Handle both Unix timestamp (seconds) and milliseconds
                 const date = new Date(timestamp * 1000);
-                
+
                 // Check if date is valid
                 if (isNaN(date.getTime())) {
                     return '';
@@ -704,6 +740,12 @@
         async function sendMessage() {
             const message = inputField.value.trim();
             if (!message) return;
+
+            // Clear idle greeting timer
+            if (idleGreetingTimer) {
+                clearTimeout(idleGreetingTimer);
+                idleGreetingTimer = null;
+            }
 
             // Disable input while sending
             inputField.disabled = true;
@@ -739,7 +781,7 @@
 
                 // Clear input
                 inputField.value = '';
-                
+
                 // Small delay before reloading to ensure message is saved
                 setTimeout(async () => {
                     await loadMessages();
@@ -756,22 +798,116 @@
             }
         }
 
+        // Show Idle Greeting Message
+        function showIdleGreeting() {
+            if (idleGreetingShown) return;
+
+            idleGreetingShown = true;
+            greetingTimestamp = Math.floor(Date.now() / 1000);
+
+            // Save to sessionStorage
+            sessionStorage.setItem('flowcar_greeting_shown', 'true');
+            sessionStorage.setItem('flowcar_greeting_timestamp', greetingTimestamp.toString());
+
+            // Remove empty class
+            messagesContainer.classList.remove('empty');
+
+            // Create and append greeting message
+            appendGreetingMessage();
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Append the greeting message to the container
+        function appendGreetingMessage() {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot';
+            messageDiv.id = 'flowcar-greeting';
+
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'message-label';
+            labelDiv.textContent = 'Flowcar';
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            bubbleDiv.textContent = 'Willkommen bei Flowcar! Gerne beantworten wir all deine Fragen.';
+
+            const timestampDiv = document.createElement('div');
+            timestampDiv.className = 'message-timestamp';
+            timestampDiv.textContent = formatTimestamp(greetingTimestamp);
+
+            messageDiv.appendChild(labelDiv);
+            messageDiv.appendChild(bubbleDiv);
+            messageDiv.appendChild(timestampDiv);
+            messagesContainer.appendChild(messageDiv);
+        }
+
+        // Start Idle Greeting Timer
+        function startIdleGreetingTimer() {
+            // Clear any existing timer
+            if (idleGreetingTimer) {
+                clearTimeout(idleGreetingTimer);
+            }
+
+            // Only start if greeting not already shown
+            if (!idleGreetingShown) {
+                idleGreetingTimer = setTimeout(() => {
+                    if (widgetWindow.classList.contains('open')) {
+                        showIdleGreeting();
+                    }
+                }, 20000); // 20 seconds
+            }
+        }
+
+        // Notify parent window of size change
+        function notifyParentOfSize(isOpen) {
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'flowcar-chat-resize',
+                    isOpen: isOpen,
+                    width: isOpen ? 440 : 100,
+                    height: isOpen ? 650 : 100
+                }, '*');
+            }
+        }
+
         // Event Listeners
         widgetButton.addEventListener('click', async () => {
             // Toggle chat window
             if (widgetWindow.classList.contains('open')) {
+                // Close: first hide chat, then resize iframe
                 widgetWindow.classList.remove('open');
+                // Small delay before shrinking iframe
+                setTimeout(() => notifyParentOfSize(false), 50);
+                // Clear timer when closing
+                if (idleGreetingTimer) {
+                    clearTimeout(idleGreetingTimer);
+                    idleGreetingTimer = null;
+                }
             } else {
-                widgetWindow.classList.add('open');
-                notificationBadge.classList.remove('show');
-                // Reload messages when opening the widget
-                await loadMessages();
-                inputField.focus();
+                // Open: first resize iframe, then show chat
+                notifyParentOfSize(true);
+                // Wait for iframe to resize before showing chat
+                setTimeout(async () => {
+                    widgetWindow.classList.add('open');
+                    notificationBadge.classList.remove('show');
+                    await loadMessages();
+                    inputField.focus();
+                    startIdleGreetingTimer();
+                }, 100);
             }
         });
 
         closeButton.addEventListener('click', () => {
+            // Close: first hide chat, then resize iframe
             widgetWindow.classList.remove('open');
+            setTimeout(() => notifyParentOfSize(false), 50);
+            // Clear timer when closing
+            if (idleGreetingTimer) {
+                clearTimeout(idleGreetingTimer);
+                idleGreetingTimer = null;
+            }
         });
 
         sendButton.addEventListener('click', sendMessage);
